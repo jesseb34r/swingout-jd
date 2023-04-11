@@ -3,6 +3,7 @@ import Discord from "@auth/core/providers/discord";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { serverEnv } from "~/env/server";
 import { prisma } from "./db";
+import { Adapter } from "@auth/core/adapters";
 
 declare module "@auth/core/types" {
   export interface Session {
@@ -21,7 +22,7 @@ export const authOptions: SolidAuthConfig = {
       return session;
     },
   },
-  adapter: PrismaAdapter(prisma),
+  adapter: PrismaAdapter(prisma) as Adapter,
   providers: [
     Discord({
       clientId: serverEnv.DISCORD_ID,
