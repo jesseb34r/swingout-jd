@@ -36,6 +36,9 @@ const SiteNav: VoidComponent = () => (
         <li class="text-lg hover:underline">
           <A href="/test">Test</A>
         </li>
+        <li class="text-lg hover:underline">
+          <A href="/test2">Test2</A>
+        </li>
       </ul>
     </nav>
   </header>
