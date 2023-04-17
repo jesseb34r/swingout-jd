@@ -8,6 +8,7 @@ import {
   createSignal,
   createUniqueId,
   useContext,
+  ComponentProps,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import { JSX } from "solid-js/web/types/jsx";
@@ -17,6 +18,9 @@ const DraggableBox: VoidComponent<{
   setRef: Setter<HTMLDivElement>;
 }> = (props) => {
   const test2Context = useTest2Context();
+  const position = () =>
+    test2Context.state.elements.find((element) => element.id === props.id)!
+      .position;
 
   const handleMouseUp = () => {
     test2Context.clearSelection();
@@ -27,8 +31,9 @@ const DraggableBox: VoidComponent<{
   const handleMouseDown: JSX.EventHandler<HTMLDivElement, MouseEvent> = (e) => {
     e.preventDefault();
     test2Context.addSelectedElement(props.id);
-    test2Context.setDragStartMousePosition(e);
+    test2Context.setDragStartMousePosition({ x: e.clientX, y: e.clientY });
     test2Context.setDragStartPositions();
+    console.log("set new start positions");
 
     document.addEventListener("mousemove", test2Context.handleDrag);
     document.addEventListener("mouseup", handleMouseUp);
@@ -37,21 +42,18 @@ const DraggableBox: VoidComponent<{
   return (
     <div
       style={{
-        top: `${
-          test2Context.state.elements.find(
-            (element) => element.id === props.id
-          )!.position.y
-        }px`,
-        left: `${
-          test2Context.state.elements.find(
-            (element) => element.id === props.id
-          )!.position.x
-        }px`,
+        top: `${position().y}px`,
+        left: `${position().x}px`,
       }}
       ref={props.setRef}
       class="fixed h-40 w-40 border-orange6 bg-blue3"
       onMouseDown={handleMouseDown}
-    />
+    >
+      {JSON.stringify(
+        test2Context.state.elements.find((element) => element.id === props.id)!
+          .dragStartPosition
+      )}
+    </div>
   );
 };
 
@@ -75,7 +77,7 @@ type Test2ContextValue = {
   addSelectedElement: (id: string) => void;
   clearSelection: () => void;
   setDragStartPositions: () => void;
-  setDragStartMousePosition: (e: MouseEvent) => void;
+  setDragStartMousePosition: (position: { x: number; y: number }) => void;
   handleDrag: (e: MouseEvent) => void;
 };
 
@@ -120,19 +122,31 @@ export default function Test2Page() {
       if (!state.elements.find((element) => element.id === id)) {
         throw new Error("element id not found");
       }
-      console.log("adding id " + id);
+      // console.log("adding id " + id);
       setState(produce((state) => state.selectedElementIds.push(id)));
-      console.log("current selection is " + state.selectedElementIds);
+      // console.log("current selection is " + state.selectedElementIds);
     },
     clearSelection() {
       setState("selectedElementIds", []);
-      console.log("selection cleared");
+      // console.log("selection cleared");
     },
-    setDragStartMousePosition(e) {
-      setState("dragStartMousePosition", { x: e.clientX, y: e.clientY });
+    setDragStartMousePosition(position) {
+      setState("dragStartMousePosition", position);
+      console.log(
+        "starting mouse position: " +
+          JSON.stringify(state.dragStartMousePosition)
+      );
     },
     setDragStartPositions() {
       state.selectedElementIds.forEach((id) => {
+        console.log(
+          "starting element position: " +
+            id +
+            ": " +
+            JSON.stringify(
+              state.elements.find((element) => element.id === id)!.position
+            )
+        );
         setState(
           "elements",
           (element) => element.id === id,
@@ -145,29 +159,34 @@ export default function Test2Page() {
     },
     handleDrag(e) {
       state.selectedElementIds.forEach((id) => {
-        console.log(
-          state.elements.find((element) => element.id === id)?.position
-        );
+        // console.log(
+        //   JSON.stringify(
+        //     state.elements.find((element) => element.id === id)!
+        //       .dragStartPosition
+        //   )
+        // );
+        // console.log(
+        //   JSON.stringify(
+        //     state.elements.find((element) => element.id === id)!.position
+        //   )
+        // );
+        // console.log(JSON.stringify(state.elements));
         setState(
           "elements",
           (element) => element.id === id,
           "position",
           () => {
-            const dragStartPosition = state.elements.find(
-              (element) => element.id === id
-            )!.dragStartPosition;
             return {
               x:
-                dragStartPosition.x +
+                state.elements.find((element) => element.id === id)!
+                  .dragStartPosition.x +
                 (e.clientX - state.dragStartMousePosition.x),
               y:
-                dragStartPosition.y +
+                state.elements.find((element) => element.id === id)!
+                  .dragStartPosition.y +
                 (e.clientY - state.dragStartMousePosition.y),
             };
           }
-        );
-        console.log(
-          state.elements.find((element) => element.id === id)?.position
         );
       });
     },
@@ -242,6 +261,31 @@ export default function Test2Page() {
     return Math.abs(activePosition().x - initialPosition().x);
   };
 
+  const makeElements = (numToMake: number) => {
+    const toReturn: ComponentProps<typeof DraggableBox>[] = [];
+
+    for (let i = 1; i <= numToMake; i++) {
+      const [ref, setRef] = createSignal<HTMLDivElement>();
+      const initialPosition = {
+        x: Math.random() * 1000,
+        y: Math.random() * 500,
+      };
+      const id = createUniqueId();
+
+      context.addElement({
+        id,
+        ref: ref,
+        position: initialPosition,
+        dragStartPosition: initialPosition,
+      });
+      toReturn.push({ id, setRef });
+    }
+
+    return toReturn;
+  };
+
+  const elements = makeElements(2);
+
   return (
     <main class="flex select-none flex-col text-center">
       <h1 class="mb-2.5 text-6xl font-semibold tracking-wide">Test Page</h1>
@@ -264,23 +308,9 @@ export default function Test2Page() {
               class="fixed z-50 overflow-clip border bg-sand11/10"
             ></div>
           </Show>
-          <For each={new Array(5)}>
-            {() => {
-              const [ref, setRef] = createSignal<HTMLDivElement>();
-              const initialPosition = {
-                x: Math.random() * 1000,
-                y: Math.random() * 500,
-              };
-              const id = createUniqueId();
-
-              useTest2Context().addElement({
-                id,
-                ref: ref,
-                position: initialPosition,
-                dragStartPosition: initialPosition,
-              });
-
-              return <DraggableBox id={id} setRef={setRef} />;
+          <For each={elements}>
+            {(element) => {
+              return <DraggableBox {...element} />;
             }}
           </For>
         </div>
