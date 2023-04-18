@@ -1,5 +1,8 @@
 import {
+  Accessor,
+  ComponentProps,
   For,
+  ParentComponent,
   Show,
   VoidComponent,
   createContext,
@@ -16,6 +19,7 @@ type DraggableState = {
   id: string;
   position: Position;
   dragStartPosition: Position;
+  ref: Accessor<HTMLDivElement | undefined>;
 };
 
 type DragState = {
@@ -94,6 +98,116 @@ const Draggable: VoidComponent<{ id: string }> = (props) => {
   );
 };
 
+const DragSelectZone: ParentComponent<ComponentProps<"div">> = (props) => {
+  const [zoneRef, setZoneRef] = createSignal<HTMLDivElement>();
+  const [dragStartMousePosition, setDragStartMousePosition] = createSignal({
+    x: 0,
+    y: 0,
+  });
+  const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = createSignal(false);
+
+  const checkIntersection: string[] = () => {};
+
+  const handleMouseMove = (e: MouseEvent) => {
+    setMousePosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  };
+
+  const handleMouseDown = (e: MouseEvent) => {
+    if (e.defaultPrevented) {
+      return;
+    }
+
+    setIsDragging(true);
+    setDragStartMousePosition({ x: e.clientX, y: e.clientY });
+    setMousePosition({ x: e.clientX, y: e.clientY });
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
+  const selectBoxDimensions = {
+    top: () => {
+      if (dragStartMousePosition().y > mousePosition().y) {
+        return Math.max(
+          mousePosition().y,
+          zoneRef()!.getBoundingClientRect().y
+        );
+      }
+      return Math.max(
+        dragStartMousePosition().y,
+        zoneRef()!.getBoundingClientRect().y
+      );
+    },
+    left: () => {
+      if (dragStartMousePosition().x > mousePosition().x) {
+        return Math.max(
+          mousePosition().x,
+          zoneRef()!.getBoundingClientRect().x
+        );
+      }
+      return Math.max(
+        dragStartMousePosition().x,
+        zoneRef()!.getBoundingClientRect().x
+      );
+    },
+    height: () => {
+      if (mousePosition().y < zoneRef()!.getBoundingClientRect().y) {
+        return (
+          dragStartMousePosition().y - zoneRef()!.getBoundingClientRect().y
+        );
+      }
+
+      if (mousePosition().y > zoneRef()!.getBoundingClientRect().bottom) {
+        return (
+          zoneRef()!.getBoundingClientRect().bottom - dragStartMousePosition().y
+        );
+      }
+
+      return Math.abs(mousePosition().y - dragStartMousePosition().y);
+    },
+    width: () => {
+      if (mousePosition().x < zoneRef()!.getBoundingClientRect().x) {
+        return (
+          dragStartMousePosition().x - zoneRef()!.getBoundingClientRect().x
+        );
+      }
+
+      if (mousePosition().x > zoneRef()!.getBoundingClientRect().right) {
+        return (
+          zoneRef()!.getBoundingClientRect().right - dragStartMousePosition().x
+        );
+      }
+
+      return Math.abs(mousePosition().x - dragStartMousePosition().x);
+    },
+  };
+
+  return (
+    <div ref={setZoneRef} onMouseDown={handleMouseDown} {...props}>
+      <Show when={isDragging()}>
+        <div
+          style={{
+            top: `${selectBoxDimensions.top()}px`,
+            left: `${selectBoxDimensions.left()}px`,
+            width: `${selectBoxDimensions.width()}px`,
+            height: `${selectBoxDimensions.height()}px`,
+          }}
+          class="fixed z-50 overflow-clip border bg-sand11/10"
+        ></div>
+      </Show>
+      {props.children}
+    </div>
+  );
+};
+
 export default function Test2Page() {
   const [state, setState] = createStore<DragState>({
     elements: {},
@@ -112,9 +226,12 @@ export default function Test2Page() {
     },
     setDragStartPositions: () => {
       state.selectedElementIds.forEach((id) => {
-        // setState("elements", id, "dragStartPosition", {
-        //   ...state.elements[id].position,
-        // });
+        // setState(
+        //   "elements",
+        //   id,
+        //   "dragStartPosition",
+        //   state.elements[id].position
+        // );
         // setState(
         //   produce((currentState) => {
         //     currentState.elements[id].dragStartPosition = {
@@ -181,75 +298,6 @@ export default function Test2Page() {
     },
   };
 
-  const [initialPosition, setInitialPosition] = createSignal({ x: 0, y: 0 });
-  const [activePosition, setActivePosition] = createSignal({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = createSignal<boolean>(false);
-
-  const [zoneRef, setZoneRef] = createSignal<HTMLDivElement>();
-
-  const handleMouseMove = (e: MouseEvent) => {
-    setActivePosition({ x: e.clientX, y: e.clientY });
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-
-    document.removeEventListener("mousemove", handleMouseMove);
-    document.removeEventListener("mouseup", handleMouseUp);
-  };
-
-  const handleMouseDown = (e: MouseEvent) => {
-    if (e.defaultPrevented) {
-      return;
-    }
-
-    setIsDragging(true);
-    setActivePosition({ x: 0, y: 0 });
-    setInitialPosition({ x: e.clientX, y: e.clientY });
-    setActivePosition({ x: e.clientX, y: e.clientY });
-
-    document.addEventListener("mousemove", handleMouseMove);
-    document.addEventListener("mouseup", handleMouseUp);
-  };
-
-  const dragBoxTop = () => {
-    if (initialPosition().y > activePosition().y) {
-      return Math.max(activePosition().y, zoneRef()!.getBoundingClientRect().y);
-    }
-    return Math.max(initialPosition().y, zoneRef()!.getBoundingClientRect().y);
-  };
-
-  const dragBoxLeft = () => {
-    if (initialPosition().x > activePosition().x) {
-      return Math.max(activePosition().x, zoneRef()!.getBoundingClientRect().x);
-    }
-    return Math.max(initialPosition().x, zoneRef()!.getBoundingClientRect().x);
-  };
-
-  const dragBoxHeight = () => {
-    if (activePosition().y < zoneRef()!.getBoundingClientRect().y) {
-      return initialPosition().y - zoneRef()!.getBoundingClientRect().y;
-    }
-
-    if (activePosition().y > zoneRef()!.getBoundingClientRect().bottom) {
-      return zoneRef()!.getBoundingClientRect().bottom - initialPosition().y;
-    }
-
-    return Math.abs(activePosition().y - initialPosition().y);
-  };
-
-  const dragBoxWidth = () => {
-    if (activePosition().x < zoneRef()!.getBoundingClientRect().x) {
-      return initialPosition().x - zoneRef()!.getBoundingClientRect().x;
-    }
-
-    if (activePosition().x > zoneRef()!.getBoundingClientRect().right) {
-      return zoneRef()!.getBoundingClientRect().right - initialPosition().x;
-    }
-
-    return Math.abs(activePosition().x - initialPosition().x);
-  };
-
   const makeElements = (numToMake: number): string[] => {
     const toReturn: string[] = [];
 
@@ -263,8 +311,9 @@ export default function Test2Page() {
 
       context.addElement({
         id,
-        position: initialPosition,
-        dragStartPosition: initialPosition,
+        ref,
+        position: { ...initialPosition },
+        dragStartPosition: { ...initialPosition },
       });
       toReturn.push(id);
     }
@@ -279,29 +328,14 @@ export default function Test2Page() {
       <h1 class="mb-2.5 text-6xl font-semibold tracking-wide">Test Page</h1>
       <p class="text-lg text-sand11">Make features work</p>
       <DragContext.Provider value={context}>
-        <div
-          ref={setZoneRef}
-          onMouseDown={handleMouseDown}
-          class="m-10 flex h-full items-center justify-center bg-sand5"
-        >
+        <DragSelectZone class="m-10 flex h-full items-center justify-center bg-sand5">
           Click and Drag
-          <Show when={isDragging()}>
-            <div
-              style={{
-                top: `${dragBoxTop()}px`,
-                left: `${dragBoxLeft()}px`,
-                width: `${dragBoxWidth()}px`,
-                height: `${dragBoxHeight()}px`,
-              }}
-              class="fixed z-50 overflow-clip border bg-sand11/10"
-            ></div>
-          </Show>
           <For each={startingElementIds}>
             {(id) => {
               return <Draggable id={id} />;
             }}
           </For>
-        </div>
+        </DragSelectZone>
       </DragContext.Provider>
     </main>
   );
