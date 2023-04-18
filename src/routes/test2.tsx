@@ -106,13 +106,17 @@ export default function Test2Page() {
         // setState("elements", id, "dragStartPosition", {
         //   ...state.elements[id].position,
         // });
-        setState(
-          produce((currentState) => {
-            currentState.elements[id].dragStartPosition = {
-              ...currentState.elements[id].position,
-            };
-          })
-        );
+        // setState(
+        //   produce((currentState) => {
+        //     currentState.elements[id].dragStartPosition = {
+        //       ...currentState.elements[id].position,
+        //     };
+        //   })
+        // );
+        setState("elements", id, (prev) => {
+          prev.dragStartPosition = { ...prev.position };
+          return prev;
+        });
       });
     },
     setDragStartMousePosition: (position) => {
