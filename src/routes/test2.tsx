@@ -22,6 +22,7 @@ type DragState = {
   elements: Record<string, DraggableState>;
   selectedElementIds: string[];
   dragStartMousePosition: Position;
+  isDragging: boolean;
 };
 
 type DragContextValue = {
@@ -32,7 +33,9 @@ type DragContextValue = {
   setDragStartMousePosition: (position: Position) => void;
   selectElement: (toSelectId: string) => void;
   unSelectElement: (toUnSelectId: string) => void;
+  clearSelection: () => void;
   handleDrag: (e: MouseEvent) => void;
+  setIsDragging: (isDragging: boolean) => void;
 };
 
 const DragContext = createContext<DragContextValue>();
@@ -51,6 +54,11 @@ const Draggable: VoidComponent<{ id: string }> = (props) => {
   const dragContext = useDragContext();
 
   const handleMouseUp = () => {
+    if (dragContext.state.isDragging) {
+      dragContext.setIsDragging(false);
+      dragContext.clearSelection();
+    }
+
     document.removeEventListener("mousemove", dragContext.handleDrag);
     document.removeEventListener("mouseup", handleMouseUp);
   };
@@ -91,6 +99,7 @@ export default function Test2Page() {
     elements: {},
     selectedElementIds: [],
     dragStartMousePosition: { x: 0, y: 0 },
+    isDragging: false,
   });
 
   const context: DragContextValue = {
@@ -148,7 +157,14 @@ export default function Test2Page() {
         )
       );
     },
+    clearSelection: () => {
+      setState("selectedElementIds", []);
+    },
     handleDrag: (e) => {
+      if (!state.isDragging) {
+        context.setIsDragging(true);
+      }
+
       state.selectedElementIds.forEach((id) => {
         setState("elements", id, "position", {
           x:
@@ -159,6 +175,9 @@ export default function Test2Page() {
             (e.clientY - state.dragStartMousePosition.y),
         });
       });
+    },
+    setIsDragging: (isDragging) => {
+      setState("isDragging", isDragging);
     },
   };
 
