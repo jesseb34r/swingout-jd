@@ -103,11 +103,15 @@ export default function Test2Page() {
     },
     setDragStartPositions: () => {
       state.selectedElementIds.forEach((id) => {
+        // setState("elements", id, "dragStartPosition", {
+        //   ...state.elements[id].position,
+        // });
         setState(
-          "elements",
-          id,
-          "dragStartPosition",
-          state.elements[id].position
+          produce((currentState) => {
+            currentState.elements[id].dragStartPosition = {
+              ...currentState.elements[id].position,
+            };
+          })
         );
       });
     },
