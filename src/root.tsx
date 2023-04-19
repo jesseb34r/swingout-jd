@@ -34,10 +34,10 @@ const SiteNav: VoidComponent = () => (
           <A href="/deck">Deck</A>
         </li>
         <li class="text-lg hover:underline">
-          <A href="/test">Test</A>
+          <A href="/drag">Drag</A>
         </li>
         <li class="text-lg hover:underline">
-          <A href="/test2">Test2</A>
+          <A href="/test">Test</A>
         </li>
       </ul>
     </nav>

@@ -247,7 +247,7 @@ const DragSelectZone: ParentComponent<ComponentProps<"div">> = (props) => {
   );
 };
 
-export default function Test2Page() {
+export default function DragPage() {
   const [state, setState] = createStore<DragState>({
     elements: {},
     selectedElementIds: [],
