@@ -3,6 +3,7 @@ import {
   ComponentProps,
   For,
   ParentComponent,
+  Setter,
   Show,
   VoidComponent,
   createContext,
@@ -37,6 +38,7 @@ type DragContextValue = {
   setDragStartMousePosition: (position: Position) => void;
   selectElement: (toSelectId: string) => void;
   unSelectElement: (toUnSelectId: string) => void;
+  setSelection: (newSelection: string[]) => void;
   clearSelection: () => void;
   handleDrag: (e: MouseEvent) => void;
   setIsDragging: (isDragging: boolean) => void;
@@ -54,7 +56,10 @@ const useDragContext = () => {
   return context;
 };
 
-const Draggable: VoidComponent<{ id: string }> = (props) => {
+const Draggable: VoidComponent<{
+  id: string;
+  setRef: Setter<HTMLDivElement>;
+}> = (props) => {
   const dragContext = useDragContext();
 
   const handleMouseUp = () => {
@@ -94,23 +99,56 @@ const Draggable: VoidComponent<{ id: string }> = (props) => {
           !!dragContext.state.selectedElementIds.includes(props.id),
       }}
       onMouseDown={handleMouseDown}
+      ref={props.setRef}
     />
   );
 };
 
 const DragSelectZone: ParentComponent<ComponentProps<"div">> = (props) => {
   const [zoneRef, setZoneRef] = createSignal<HTMLDivElement>();
+  const [selectionRef, setSelectionRef] = createSignal<HTMLDivElement>();
   const [dragStartMousePosition, setDragStartMousePosition] = createSignal({
     x: 0,
     y: 0,
   });
   const [mousePosition, setMousePosition] = createSignal({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = createSignal(false);
+  const dragContext = useDragContext();
 
-  const checkIntersection: string[] = () => {};
+  const checkIntersection = (): string[] => {
+    let toReturn = [] as string[];
+    Object.keys(dragContext.state.elements).forEach((elementId) => {
+      const elementRect = dragContext.state.elements[elementId]
+        .ref()
+        ?.getBoundingClientRect();
+      const selectionRect = selectionRef()?.getBoundingClientRect();
+
+      if (!elementRect) {
+        console.log("undefined element rect");
+        return;
+      }
+
+      if (!selectionRect) {
+        console.log("undefined selection rect");
+        return;
+      }
+
+      if (
+        selectionRect.x < elementRect.x + elementRect.width &&
+        selectionRect.x + selectionRect.width > elementRect.x &&
+        selectionRect.y < elementRect.y + elementRect.height &&
+        selectionRect.y + selectionRect.height > elementRect.y
+      ) {
+        toReturn.push(elementId);
+      }
+    });
+
+    return toReturn;
+  };
 
   const handleMouseMove = (e: MouseEvent) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
+    dragContext.setSelection(checkIntersection());
   };
 
   const handleMouseUp = () => {
@@ -124,6 +162,8 @@ const DragSelectZone: ParentComponent<ComponentProps<"div">> = (props) => {
     if (e.defaultPrevented) {
       return;
     }
+
+    dragContext.clearSelection();
 
     setIsDragging(true);
     setDragStartMousePosition({ x: e.clientX, y: e.clientY });
@@ -194,6 +234,7 @@ const DragSelectZone: ParentComponent<ComponentProps<"div">> = (props) => {
     <div ref={setZoneRef} onMouseDown={handleMouseDown} {...props}>
       <Show when={isDragging()}>
         <div
+          ref={setSelectionRef}
           style={{
             top: `${selectBoxDimensions.top()}px`,
             left: `${selectBoxDimensions.left()}px`,
@@ -226,19 +267,6 @@ export default function Test2Page() {
     },
     setDragStartPositions: () => {
       state.selectedElementIds.forEach((id) => {
-        // setState(
-        //   "elements",
-        //   id,
-        //   "dragStartPosition",
-        //   state.elements[id].position
-        // );
-        // setState(
-        //   produce((currentState) => {
-        //     currentState.elements[id].dragStartPosition = {
-        //       ...currentState.elements[id].position,
-        //     };
-        //   })
-        // );
         setState("elements", id, (prev) => {
           prev.dragStartPosition = { ...prev.position };
           return prev;
@@ -274,6 +302,9 @@ export default function Test2Page() {
         )
       );
     },
+    setSelection: (newSelection) => {
+      setState("selectedElementIds", newSelection);
+    },
     clearSelection: () => {
       setState("selectedElementIds", []);
     },
@@ -298,8 +329,10 @@ export default function Test2Page() {
     },
   };
 
-  const makeElements = (numToMake: number): string[] => {
-    const toReturn: string[] = [];
+  const makeElements = (
+    numToMake: number
+  ): { id: string; setRef: Setter<HTMLDivElement> }[] => {
+    const toReturn: { id: string; setRef: Setter<HTMLDivElement> }[] = [];
 
     for (let i = 1; i <= numToMake; i++) {
       const [ref, setRef] = createSignal<HTMLDivElement>();
@@ -315,13 +348,13 @@ export default function Test2Page() {
         position: { ...initialPosition },
         dragStartPosition: { ...initialPosition },
       });
-      toReturn.push(id);
+      toReturn.push({ id, setRef });
     }
 
     return toReturn;
   };
 
-  const startingElementIds = makeElements(2);
+  const startingElements = makeElements(2);
 
   return (
     <main class="flex select-none flex-col text-center">
@@ -330,9 +363,9 @@ export default function Test2Page() {
       <DragContext.Provider value={context}>
         <DragSelectZone class="m-10 flex h-full items-center justify-center bg-sand5">
           Click and Drag
-          <For each={startingElementIds}>
-            {(id) => {
-              return <Draggable id={id} />;
+          <For each={startingElements}>
+            {(element) => {
+              return <Draggable setRef={element.setRef} id={element.id} />;
             }}
           </For>
         </DragSelectZone>
