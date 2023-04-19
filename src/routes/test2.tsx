@@ -74,12 +74,9 @@ const Draggable: VoidComponent<{
 
   const handleMouseDown: JSX.EventHandler<HTMLDivElement, MouseEvent> = (e) => {
     e.preventDefault();
-    if (!dragContext.state.selectedElementIds.includes(props.id)) {
-      dragContext.selectElement(props.id);
-    } else {
-      dragContext.unSelectElement(props.id);
-    }
 
+    !dragContext.state.selectedElementIds.includes(props.id) &&
+      dragContext.selectElement(props.id);
     dragContext.setDragStartMousePosition({ x: e.clientX, y: e.clientY });
     dragContext.setDragStartPositions();
 
@@ -94,9 +91,10 @@ const Draggable: VoidComponent<{
         left: `${dragContext.state.elements[props.id].position.x}px`,
       }}
       classList={{
-        "fixed h-40 w-40 rounded bg-blue3": true,
-        "border-4 border-orange6":
-          !!dragContext.state.selectedElementIds.includes(props.id),
+        "fixed h-40 w-40 rounded bg-blue3 border-4 border-blue5 ": true,
+        "border-orange9": !!dragContext.state.selectedElementIds.includes(
+          props.id
+        ),
       }}
       onMouseDown={handleMouseDown}
       ref={props.setRef}
